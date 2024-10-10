@@ -1,6 +1,6 @@
-#include <node.h>
+#include <napi.h>
+#include <uv.h>
 #include <node_buffer.h>
-#include <nan.h>
 #include <ctype.h> // isspace
 
 #include "cpu_features_macros.h"
@@ -43,21 +43,20 @@
 #endif
 
 #define SET_FLAG(key)                                                          \
-Nan::Set(ret, Nan::New<String>(key).ToLocalChecked(), Nan::New<Boolean>(true))
+(ret).Set(Napi::String::New(env, key), Napi::Boolean::New(env, true))
 
 #define SET_STR(key, val)                                                      \
-Nan::Set(ret,                                                                  \
-         Nan::New<String>(key).ToLocalChecked(),                               \
-         Nan::New<String>(trim(val)).ToLocalChecked())
+(ret).Set(\
+         Napi::String::New(env, key),                               \
+         Napi::String::New(env, trim(val)))
 
 #define SET_NUM(key, val)                                                      \
-Nan::Set(ret, Nan::New<String>(key).ToLocalChecked(), Nan::New<Number>(val))
+(ret).Set(Napi::String::New(env, key), Napi::Number::New(env, val))
 
 #define SET_VAL(key, val)                                                      \
-Nan::Set(ret, Nan::New<String>(key).ToLocalChecked(), val)
+(ret).Set(Napi::String::New(env, key), val)
 
-using namespace node;
-using namespace v8;
+using namespace Napi;
 using namespace cpu_features;
 using namespace std;
 
@@ -81,8 +80,8 @@ static inline string trim(const char* str) {
 }
 
 #if defined(LastFeature)
-Local<Object> GenerateFlags(const FeatureType* features) {
-  const auto ret = Nan::New<Object>();
+Napi::Object GenerateFlags(Napi::Env env, const FeatureType* features) {
+  const auto ret = Napi::Object::New(env);
   for (size_t i = 0; i < LastFeature; ++i) {
     const auto enum_val = static_cast<FeatureEnumType>(i);
     if (GetFeatureValue(features, enum_val))
@@ -92,8 +91,9 @@ Local<Object> GenerateFlags(const FeatureType* features) {
 }
 #endif
 
-NAN_METHOD(GetCPUInfo) {
-  const auto ret = Nan::New<Object>();
+Napi::Value GetCPUInfo(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  const auto ret = Napi::Object::New(env);
 #if defined(CPU_FEATURES_ARCH_X86)
   const X86Info details = GetX86Info();
   SET_STR("arch", "x86");
@@ -103,7 +103,7 @@ NAN_METHOD(GetCPUInfo) {
   SET_NUM("stepping", details.stepping);
   SET_STR("uarch",
           GetX86MicroarchitectureName(GetX86Microarchitecture(&details)));
-  SET_VAL("flags", GenerateFlags(&details.features));
+  SET_VAL("flags", GenerateFlags(env, &details.features));
 #elif defined(CPU_FEATURES_ARCH_ARM)
   const ArmInfo details = GetArmInfo();
   SET_STR("arch", "arm");
@@ -112,7 +112,7 @@ NAN_METHOD(GetCPUInfo) {
   SET_NUM("variant", details.variant);
   SET_NUM("part", details.part);
   SET_NUM("revision", details.revision);
-  SET_VAL("flags", GenerateFlags(&details.features));
+  SET_VAL("flags", GenerateFlags(env, &details.features));
 #elif defined(CPU_FEATURES_ARCH_AARCH64)
   const Aarch64Info details = GetAarch64Info();
   SET_STR("arch", "aarch64");
@@ -120,11 +120,11 @@ NAN_METHOD(GetCPUInfo) {
   SET_NUM("variant", details.variant);
   SET_NUM("part", details.part);
   SET_NUM("revision", details.revision);
-  SET_VAL("flags", GenerateFlags(&details.features));
+  SET_VAL("flags", GenerateFlags(env, &details.features));
 #elif defined(CPU_FEATURES_ARCH_MIPS)
   const MipsInfo details = GetMipsInfo();
   SET_STR("arch", "mips");
-  SET_VAL("flags", GenerateFlags(&details.features));
+  SET_VAL("flags", GenerateFlags(env, &details.features));
 #elif defined(CPU_FEATURES_ARCH_PPC)
   const PPCInfo details = GetPPCInfo();
   const PPCPlatformStrings strings = GetPPCPlatformStrings();
@@ -135,17 +135,18 @@ NAN_METHOD(GetCPUInfo) {
   SET_STR("cpu", strings.cpu);
   SET_STR("instruction set", strings.type.platform);
   SET_STR("microarchitecture", strings.type.base_platform);
-  SET_VAL("flags", GenerateFlags(&details.features));
+  SET_VAL("flags", GenerateFlags(env, &details.features));
 #else
   SET_STR("arch", "unknown");
-  SET_VAL("flags", Nan::New<Object>());
+  SET_VAL("flags", Napi::Object::New(env));
 #endif
-  info.GetReturnValue().Set(ret);
+  return ret;
 }
 
-NAN_MODULE_INIT(init) {
-  Nan::Set(target, Nan::New<String>("getCPUInfo").ToLocalChecked(),
-    Nan::GetFunction(Nan::New<FunctionTemplate>(GetCPUInfo)).ToLocalChecked());
+Napi::Object init(Napi::Env env, Napi::Object exports) {
+  exports.Set(Napi::String::New(env, "getCPUInfo"),
+              Napi::Function::New(env, GetCPUInfo));
+  return exports;
 }
 
-NODE_MODULE(cpufeatures, init)
+NODE_API_MODULE(cpufeatures, init)
