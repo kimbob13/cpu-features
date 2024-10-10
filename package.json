@@ -9,8 +9,7 @@
     "node-addon-api": "^8.1.0"
   },
   "devDependencies": {
-    "@mscdex/eslint-config": "^1.1.0",
-    "eslint": "^7.0.0"
+    "eslint": "^9.12.0"
   },
   "scripts": {
     "install": "node buildcheck.js > buildcheck.gypi && node-gyp rebuild",
@@ -36,5 +35,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/mscdex/cpu-features.git"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610"
 }
